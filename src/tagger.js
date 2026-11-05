@@ -46,9 +46,19 @@ async function getEncoder(modelId, onProgress) {
   }
 }
 
+// 写真を判定する。結果に画像埋め込み（相性の計算に使う）も含める
 export async function analyzePhoto(blob, onProgress) {
   const tagger = await getTagger();
   if (!tagger) throw new Error("分類器ファイルがありません");
   const encode = await getEncoder(tagger.imageModel, onProgress);
-  return interpret(tagger, await encode(blob));
+  const embedding = await encode(blob);
+  return { ...interpret(tagger, embedding), embedding };
+}
+
+// 画像埋め込みだけを計算する（モデルが端末に保存済みのときの裏側の処理用）
+export async function embedPhoto(blob) {
+  const tagger = await getTagger();
+  if (!tagger) throw new Error("分類器ファイルがありません");
+  const encode = await getEncoder(tagger.imageModel);
+  return encode(blob);
 }

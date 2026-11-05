@@ -46,6 +46,12 @@ export function addItem(items, item) {
   return { items: next, added };
 }
 
+export function updateItem(items, id, patch) {
+  const next = items.map((i) => (i.id === id ? { ...i, ...patch } : i));
+  save(next);
+  return next;
+}
+
 export function removeItem(items, id) {
   const next = items.filter((i) => i.id !== id);
   save(next);

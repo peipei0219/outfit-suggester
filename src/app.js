@@ -2,14 +2,15 @@ import { suggest } from "./rules.js";
 import { fetchWeather, searchCity, getCurrentPosition } from "./weather.js";
 import {
   CATEGORIES, SEASONS, SCENES,
-  loadCloset, addItem, removeItem, exportCloset, importCloset,
+  loadCloset, addItem, updateItem, removeItem, exportCloset, importCloset,
 } from "./closet.js";
 import {
   putPhoto, deletePhoto, getAllPhotos, resizeImage, requestPersist, blobToDataURL, dataURLToBlob,
 } from "./photos.js";
 import { SHOPS, toKeywords } from "./shops.js";
-import { getTagger, analyzePhoto } from "./tagger.js";
-import { suggestName } from "./tagger-core.js";
+import { getTagger, analyzePhoto, embedPhoto } from "./tagger.js";
+import { suggestName, encodeF16, decodeF16 } from "./tagger-core.js";
+import { loadCompat, outfitScore, compatLevel } from "./compat-core.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -50,6 +51,47 @@ let lastWeather = null; // { place, temp, weather, max, min, rainChance, feelsLi
 let lastSuggestion = null;
 const photos = new Map(); // id → Blob
 const photoUrls = new Map(); // id → 表示用 URL
+
+// ---------- 相性モデル ----------
+let compatModel = null;
+const embedCache = new Map(); // embed（base64）→ Float32Array
+
+function loadCompatModel() {
+  return fetch("model/compat.json")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((json) => { compatModel = json ? loadCompat(json) : null; })
+    .catch(() => { compatModel = null; });
+}
+
+function embeddingOf(item) {
+  if (!embedCache.has(item.embed)) {
+    const bytes = (item.embed.length * 3) / 4 - (item.embed.endsWith("==") ? 2 : item.embed.endsWith("=") ? 1 : 0);
+    embedCache.set(item.embed, decodeF16(item.embed, bytes / 2));
+  }
+  return embedCache.get(item.embed);
+}
+
+const scoreOutfit = (items) =>
+  compatModel ? outfitScore(compatModel, items.map((i) => ({ category: i.category, embedding: embeddingOf(i) }))) : null;
+
+// 写真から特徴（CLIP の埋め込み）を計算して服に保存する。AI モデルが端末にあるときだけ（勝手にダウンロードしない）
+let embedQueue = Promise.resolve();
+function queueEmbedding(id) {
+  if (!store.get(AI_READY_KEY)) return;
+  embedQueue = embedQueue.then(async () => {
+    const blob = photos.get(id);
+    const item = closet.find((i) => i.id === id);
+    if (!blob || !item || item.embed) return;
+    try {
+      const e = await embedPhoto(blob);
+      if (photos.get(id) !== blob) return; // 計算中に写真が変わった
+      closet = updateItem(closet, id, { embed: encodeF16(e) });
+      if (lastSuggestion) run();
+    } catch {
+      // 失敗しても提案は従来どおり動く
+    }
+  });
+}
 
 // ---------- 共通部品 ----------
 function radios(container, name, options, selected) {
@@ -297,13 +339,21 @@ function render(s, animate = false) {
 
   const tips = s.tips.length ? el("ul", { className: "tips" }, ...s.tips.map((t) => el("li", { textContent: t }))) : null;
 
-  const hint = closet.length
-    ? null
-    : el("p", { className: "hint" }, "クローゼットに服を登録すると、手持ちの服から選びます。");
+  const COMPAT_LABEL = { good: "相性 ◎", ok: "相性 ○", poor: "相性 △" };
+  const level = s.compat && compatModel ? compatLevel(compatModel, s.compat.score) : null;
+  const badge = level ? el("span", { className: `compat compat-${level}`, textContent: COMPAT_LABEL[level] }) : null;
+  const withPhotos = closet.filter((i) => photoUrls.has(i.id));
+  const hint = !closet.length
+    ? el("p", { className: "hint" }, "クローゼットに服を登録すると、手持ちの服から選びます。")
+    : level
+      ? el("p", { className: "hint" }, "手持ちの服の組み合わせから、AI が相性の良いものを選んでいます。")
+      : compatModel && withPhotos.length >= 2 && !closet.some((i) => i.embed)
+        ? el("p", { className: "hint" }, "服の登録で「写真から自動入力」を一度使うと、手持ちの服どうしの相性で組み合わせを選べるようになります。")
+        : null;
 
   $("result").replaceChildren(
     ...[
-      el("div", { className: "look-head" }, el("h2", { textContent: "今日のコーデ" }), shuffle),
+      el("div", { className: "look-head" }, el("h2", {}, "今日のコーデ", badge), shuffle),
       items, extras, tips, hint, shopSection(s),
     ].filter(Boolean)
   );
@@ -322,6 +372,7 @@ function run(animate = false) {
     range: w ? { max: w.max, min: w.min } : undefined,
     rainChance: w?.rainChance,
     prev: lastSuggestion,
+    scoreOutfit: compatModel ? scoreOutfit : undefined,
   });
   updateSky(temp, weather, lastSuggestion);
   render(lastSuggestion, animate === true);
@@ -408,7 +459,10 @@ $("item-form").addEventListener("submit", async (e) => {
   }
   error.textContent = "";
   const category = valueOf("category");
-  const res = addItem(closet, { name: $("item-name").value, category, seasons, scenes });
+  const res = addItem(closet, {
+    name: $("item-name").value, category, seasons, scenes,
+    ...(pendingEmbedding && pendingPhoto ? { embed: encodeF16(pendingEmbedding) } : {}),
+  });
   closet = res.items;
   const photo = pendingPhoto;
   // 写真の保存を待たずにフォームを空にして、続けて入力できるようにする
@@ -422,6 +476,7 @@ $("item-form").addEventListener("submit", async (e) => {
     try {
       await savePhoto(res.added.id, photo);
       renderCloset();
+      queueEmbedding(res.added.id); // 自動入力を使わなかった場合も、モデルがあれば特徴を計算
     } catch (err) {
       error.textContent = `服は追加しました。写真は保存できませんでした（${err.message}）`;
     }
@@ -451,12 +506,14 @@ function clearPendingPhoto() {
 
 // ---------- AI で自動入力 ----------
 let aiPick = { garment: null, color: null };
+let pendingEmbedding = null; // 登録フォームの写真の特徴（自動入力のときに計算したもの）
 let lastAiName = null; // AI が入れた名前（ユーザーが書き換えていなければ上書きしてよい）
 
 const aiStatus = (msg) => { $("ai-status").textContent = msg; };
 const mb = (bytes) => (bytes / 1024 / 1024).toFixed(0);
 
 async function showAiBox() {
+  pendingEmbedding = null;
   const box = $("ai-box");
   $("ai-result").replaceChildren();
   aiPick = { garment: null, color: null };
@@ -518,6 +575,7 @@ $("ai-run").addEventListener("click", async () => {
     );
     if (photo !== pendingPhoto) return; // 判定中に写真が変わった
     store.set(AI_READY_KEY, true);
+    pendingEmbedding = result.embedding;
     renderAi(result);
     if (result.confident) {
       aiPick = { garment: result.garments[0], color: result.colors[0] };
@@ -559,8 +617,10 @@ $("replace-photo").addEventListener("change", async (e) => {
   if (!file || !id) return;
   try {
     await savePhoto(id, await resizeImage(file));
+    closet = updateItem(closet, id, { embed: undefined }); // 古い写真の特徴は使わない
     renderCloset();
-    if (lastSuggestion) render(lastSuggestion);
+    queueEmbedding(id);
+    if (lastSuggestion) run();
   } catch (err) {
     alert(`写真を保存できませんでした: ${err.message}`);
   }
@@ -604,11 +664,12 @@ $("import").addEventListener("change", async (e) => {
 // ---------- 起動 ----------
 renderCloset();
 run();
-getAllPhotos()
-  .then((all) => {
+Promise.all([getAllPhotos(), loadCompatModel()])
+  .then(([all]) => {
     for (const [id, blob] of all) setPhoto(id, blob);
     renderCloset();
-    if (lastSuggestion) render(lastSuggestion);
+    if (lastSuggestion) run();
+    for (const item of closet) if (photos.has(item.id) && !item.embed) queueEmbedding(item.id);
   })
   .catch(() => {}); // IndexedDB が使えない環境では写真なしで動かす
 

@@ -34,3 +34,12 @@ test("不正なデータは読み込まない", () => {
   store.set("outfit-suggester.closet.v1", "{broken");
   assert.deepEqual(loadCloset(), []);
 });
+
+test("updateItem で特徴を保存・削除できる", async () => {
+  const { updateItem } = await import("../src/closet.js");
+  const { items, added } = addItem([], coat);
+  let next = updateItem(items, added.id, { embed: "AAAA" });
+  assert.equal(loadCloset()[0].embed, "AAAA");
+  next = updateItem(next, added.id, { embed: undefined });
+  assert.equal("embed" in loadCloset()[0], false); // JSON にすると消える
+});

@@ -129,6 +129,14 @@ def main(argv: list[str] | None = None) -> None:
     e.add_argument("--calibration", default=str(CALIBRATION), help="evaluate が出力したキャリブレーション設定")
     e.set_defaults(func=cmd_export)
 
+    c = sub.add_parser("compat-embed", help="Polyvore のアイテム画像を CLIP で埋め込む（キャッシュ）")
+    c.set_defaults(func=lambda a: __import__("outfit_ml.compat.embed", fromlist=["x"]).build_cache())
+
+    t = sub.add_parser("compat-train", help="相性モデルを学習・評価し model/compat.json に書き出す")
+    t.add_argument("--negatives", type=int, default=2)
+    t.add_argument("--seed", type=int, default=0)
+    t.set_defaults(func=lambda a: __import__("outfit_ml.compat.run", fromlist=["x"]).run(a.negatives, a.seed))
+
     args = p.parse_args(argv)
     args.func(args)
 

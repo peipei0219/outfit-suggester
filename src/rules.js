@@ -79,16 +79,24 @@ function pick(arr, prev) {
  * @param {{max:number,min:number}} [p.range] 今日の最高・最低気温
  * @param {number} [p.rainChance] 降水確率（%）
  * @param {object} [p.prev] 前回の提案（「別の候補」で同じものを避ける）
+ * @param {(items: object[]) => number|null} [p.scoreOutfit] 手持ちの服の組み合わせの相性スコア
+ * @param {() => number} [p.random] 乱数（テスト用）
  */
-export function suggest({ temp, weather, scene, closet = [], range, rainChance, prev }) {
+export function suggest({ temp, weather, scene, closet = [], range, rainChance, prev, scoreOutfit, random = Math.random }) {
   const band = getBand(temp);
   const season = BAND_TO_SEASON[band.key];
   const generic = OUTFITS[scene][band.key];
+  const ownedFor = (category) =>
+    closet.filter((i) => i.category === category && i.seasons.includes(season) && i.scenes.includes(scene));
+
+  const combo = scoreOutfit ? chooseCombo(ownedFor, scoreOutfit, prev?.compat?.ids, random) : null;
 
   const slot = (category) => {
-    const owned = closet.filter(
-      (i) => i.category === category && i.seasons.includes(season) && i.scenes.includes(scene)
-    );
+    if (combo?.items[category]) {
+      const item = combo.items[category];
+      return { name: item.name, owned: true, id: item.id };
+    }
+    const owned = ownedFor(category);
     if (owned.length) {
       const item = pick(owned, owned.find((i) => i.name === prev?.[category]?.name));
       return { name: item.name, owned: true, id: item.id };
@@ -118,5 +126,51 @@ export function suggest({ temp, weather, scene, closet = [], range, rainChance, 
     bottoms: slot("bottoms"),
     items,
     tips,
+    compat: combo ? { score: combo.score, ids: combo.ids } : null,
   };
+}
+
+const SLOTS = ["outer", "tops", "bottoms"];
+const MAX_PER_SLOT = 8; // 組み合わせが増えすぎないよう、各枠の候補を最大 8 着にする
+const TOP_K = 5; // 相性の上位 5 通りから選ぶ（「別の候補」で変化をつけるため）
+const TEMPERATURE = 0.3;
+
+// 写真の特徴（embed）がある手持ちの服で、相性の良い組み合わせを選ぶ。2 枠以上そろわなければ null
+export function chooseCombo(ownedFor, scoreOutfit, prevIds, random = Math.random) {
+  const pools = {};
+  for (const cat of SLOTS) {
+    const withEmbed = ownedFor(cat).filter((i) => i.embed);
+    if (withEmbed.length) pools[cat] = shuffle(withEmbed, random).slice(0, MAX_PER_SLOT);
+  }
+  const cats = Object.keys(pools);
+  if (cats.length < 2) return null;
+
+  let combos = [{}];
+  for (const cat of cats) combos = combos.flatMap((c) => pools[cat].map((item) => ({ ...c, [cat]: item })));
+  const scored = combos
+    .map((items) => ({ items, score: scoreOutfit(Object.values(items)) }))
+    .filter((c) => c.score != null)
+    .map((c) => ({ ...c, ids: cats.map((k) => c.items[k].id).join("+") }))
+    .sort((a, b) => b.score - a.score);
+  if (!scored.length) return null;
+
+  let top = scored.slice(0, TOP_K);
+  if (top.length > 1) top = top.filter((c) => c.ids !== prevIds);
+  const max = top[0].score;
+  const weights = top.map((c) => Math.exp((c.score - max) / TEMPERATURE));
+  let r = random() * weights.reduce((s, w) => s + w, 0);
+  for (let k = 0; k < top.length; k++) {
+    r -= weights[k];
+    if (r <= 0) return top[k];
+  }
+  return top[top.length - 1];
+}
+
+function shuffle(arr, random) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }

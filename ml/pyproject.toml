@@ -11,6 +11,8 @@ dependencies = ["numpy>=1.26"]
 clip = ["onnxruntime>=1.17", "transformers>=4.40", "huggingface-hub>=0.23", "pillow>=10"]
 # 公開データセットでの評価
 eval = ["datasets>=2.18", "pillow>=10"]
+# コーデ相性モデルの学習（Polyvore Outfits）
+train = ["scikit-learn>=1.4", "huggingface-hub>=0.23", "pillow>=10"]
 
 [project.scripts]
 outfit-ml = "outfit_ml.cli:main"
@@ -35,3 +37,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# レポートの日本語テンプレートは 1 行が長くなるため
+"src/outfit_ml/compat/run.py" = ["E501"]

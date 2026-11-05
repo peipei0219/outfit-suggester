@@ -1,6 +1,11 @@
 # outfit-ml
 
-Outfit Suggester の機械学習部分です。いまは **服の写真から「種類・色・着る季節」を自動判定する機能** を担当しています。
+Outfit Suggester の機械学習部分です。
+
+1. **服の写真から「種類・色・着る季節」を自動判定**（CLIP のゼロショット分類）
+2. **手持ちの服どうしのコーデ相性を判定**（Polyvore Outfits で学習した相性モデル）
+
+どちらもスマホのブラウザ内で動き、写真や服のデータは端末の外に出ません。
 
 ## しくみ
 
@@ -74,6 +79,53 @@ cd /tmp/parity && npm install --no-save @huggingface/transformers@3.0.2 && node 
 - **色がまだ弱い（52.6%）**: 特にネイビー・ブラウン・白。→ 服の領域の画素から代表色を出す方法や、埋め込み上の線形分類器（linear probe）と比較する。
 - **ニット・スウェット・レギンスが苦手**（Top-1 40% 前後）。データセットのラベル粒度の差もある。
 
+## コーデ相性モデル
+
+### しくみ
+
+```
+服の写真 ─▶ CLIP 画像埋め込み（自動入力のときに計算・服ごとに保存）
+                 │
+   アウター×トップス×ボトムスの組み合わせごとに
+   2 着ずつの組の特徴 [a⊙b, |a−b|] + 種類の組 ─▶ 小さなニューラルネット ─▶ 相性スコア
+                 │                                    （model/compat.json, 344KB）
+   スコア上位 5 通りから重み付きで 1 つ選ぶ（「別の候補」で変化をつける）
+```
+
+- 学習データ: [Polyvore Outfits](https://huggingface.co/datasets/mvasil/polyvore-outfits)（Vasileva et al., ECCV 2018, CC BY 4.0）の **disjoint** 分割（train / valid / test でアイテムが重ならない＝初めて見る服への汎化を測れる）。
+  公式はログインが必要なため、同じファイルを再配布している `Stylique/Polyvore` を使用。disjoint 分割の全ファイル（コーデ・FITB・相性判定）は公式と **SHA-256 が一致** することを確認した（画像は公式が parquet 形式のため未照合）。
+- 対象はアプリの種類（アウター・トップス・ボトムス）のアイテムだけ。正例 = 同じコーデに入っている別の種類の 2 着、負例 = 片方を同じ種類のランダムなアイテムに替えたもの（正例の 2 倍）。
+- train で学習 → valid でモデルとハイパーパラメータを選択 → test で最終評価。
+
+### 結果（test）— 詳細は [reports/compat_eval.md](reports/compat_eval.md)
+
+| モデル | FITB（4 択の空欄補充） | 相性判定 AUC |
+|---|---:|---:|
+| ランダム | 25.8% | 0.501 |
+| CLIP の類似度（学習なし） | 36.9% | 0.594 |
+| ロジスティック回帰（種類の組ごと） | 38.3% | 0.620 |
+| **ニューラルネット（採用）** | **40.8%**（±1.6%） | **0.657** |
+
+- 学習なしの CLIP 類似度でもランダムより大幅に良い（色・雰囲気が似た服は合わせやすい）。学習でさらに +3.9pt。
+- 論文の値（FITB 約 55.7%、AUC 0.84）は全カテゴリ（靴・バッグなど）を手がかりに使い、画像モデルも学習しているため問題設定が異なり、直接は比べられない。この差は次の改善点（下記）。
+- Python と JavaScript で同じ相性スコアになることをテストで保証（`tests/fixtures/compat_parity.json`）。
+- アプリでの確認: 3 つのコーデ（9 着）をクローゼットに入れて 30 回「別の候補」を押すと、トップスとボトムスは 30 回とも同じ元コーデの組になった（ランダムなら約 1/3）。
+
+### コマンド
+
+```bash
+uv sync --group dev --extra clip --extra train
+uv run outfit-ml compat-embed     # Polyvore の約 4.6 万アイテムを CLIP で埋め込み（CPU 4 コアで約 25 分、ml/data/ にキャッシュ）
+uv run outfit-ml compat-train     # 学習・評価・model/compat.json の書き出し（約 5 分）
+```
+
+### 次の改善
+
+- **種類ごとの埋め込み空間**（type-aware embedding, Vasileva et al.）や、コーデ全体を一度に見る **Transformer / set モデル**
+- **難しい負例**（同じ種類で見た目が近いアイテム）での学習
+- 靴・バッグも含めた評価（アプリ側に種類を増やす必要がある）
+- アプリで「この組み合わせを着た / 却下した」を記録し、ユーザーごとに相性を調整する（ステップ 3）
+
 ## ファイル
 
 | ファイル | 役割 |
@@ -85,3 +137,8 @@ cd /tmp/parity && npm install --no-save @huggingface/transformers@3.0.2 && node 
 | `export.py` | `model/tagger.json` の書き出し |
 | `evaluate.py` | 評価用のラベル変換と指標 |
 | `cli.py` | `outfit-ml` コマンド |
+| `compat/polyvore.py` | Polyvore Outfits の読み込み（disjoint 分割、FITB・相性判定の問題） |
+| `compat/models.py` | 相性モデル（ランダム・CLIP 類似度・ロジスティック回帰・MLP） |
+| `compat/train.py` | 学習データの作成、FITB・AUC の評価 |
+| `compat/embed.py` | アイテム画像の CLIP 埋め込みとキャッシュ |
+| `compat/run.py` | 学習・選択・評価・書き出しの手順 |

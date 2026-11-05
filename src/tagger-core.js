@@ -18,6 +18,28 @@ export function decodeF16(base64, length) {
   return out;
 }
 
+// Float32Array を float16（リトルエンディアン）の base64 にする（服ごとの埋め込みの保存用）
+export function encodeF16(values) {
+  const f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
+  let bin = "";
+  for (const v of values) {
+    f32[0] = v;
+    const x = u32[0], sign = (x >>> 16) & 0x8000, exp = ((x >>> 23) & 0xff) - 127 + 15;
+    let mant = x & 0x7fffff, h;
+    if (exp <= 0) {
+      // 非正規化数（0 付近）
+      h = exp < -10 ? sign : sign | ((mant | 0x800000) >> (1 - exp + 13));
+    } else if (exp >= 31) {
+      h = sign | 0x7c00; // 大きすぎる値は無限大
+    } else {
+      h = sign | (exp << 10) | (mant >> 13);
+      if (mant & 0x1000) h++; // 丸め
+    }
+    bin += String.fromCharCode(h & 0xff, h >> 8);
+  }
+  return typeof btoa === "function" ? btoa(bin) : Buffer.from(bin, "binary").toString("base64");
+}
+
 export function loadTagger(json) {
   if (json.format !== 1) throw new Error(`未対応の分類器ファイルです (format ${json.format})`);
   const heads = {};
