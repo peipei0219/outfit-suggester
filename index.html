@@ -2,37 +2,107 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Outfit Suggester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#3b6ea5" />
+  <meta name="description" content="気温・天気・シーンと手持ちの服から、今日の服装の候補を提案します" />
+  <title>今日なに着る？</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="今日なに着る？" />
   <link rel="stylesheet" href="src/style.css" />
 </head>
 <body>
-  <main>
+  <header>
     <h1>今日なに着る？</h1>
-    <form id="form">
-      <label>気温（℃）
-        <input type="number" id="temp" value="18" min="-20" max="45" required />
-      </label>
-      <label>天気
-        <select id="weather">
-          <option value="sunny">晴れ</option>
-          <option value="cloudy">くもり</option>
-          <option value="rainy">雨</option>
-          <option value="snowy">雪</option>
-        </select>
-      </label>
-      <label>シーン
-        <select id="scene">
-          <option value="casual">カジュアル</option>
-          <option value="office">オフィス</option>
-          <option value="formal">フォーマル</option>
-          <option value="sport">スポーツ</option>
-        </select>
-      </label>
-      <button type="submit">候補を見る</button>
-    </form>
-    <section id="result" aria-live="polite"></section>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-suggest" aria-controls="panel-suggest" aria-selected="true">コーデ提案</button>
+      <button role="tab" id="tab-closet" aria-controls="panel-closet" aria-selected="false">クローゼット <span id="closet-count" class="badge"></span></button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- コーデ提案 -->
+    <section id="panel-suggest" role="tabpanel" aria-labelledby="tab-suggest">
+      <div class="card">
+        <div class="row">
+          <button type="button" id="use-location" class="secondary">📍 現在地の天気</button>
+        </div>
+        <form id="city-form" class="row">
+          <input type="search" id="city" placeholder="地名で検索（例: 札幌）" aria-label="地名" />
+          <button type="submit" class="secondary">検索</button>
+        </form>
+        <ul id="city-results" class="city-results"></ul>
+        <p id="weather-status" class="status" aria-live="polite"></p>
+      </div>
+
+      <form id="form" class="card">
+        <label>気温（℃）
+          <input type="number" id="temp" value="18" min="-30" max="45" inputmode="numeric" required />
+        </label>
+        <label>天気
+          <select id="weather">
+            <option value="sunny">☀️ 晴れ</option>
+            <option value="cloudy">☁️ くもり</option>
+            <option value="rainy">☔ 雨</option>
+            <option value="snowy">❄️ 雪</option>
+          </select>
+        </label>
+        <label>シーン
+          <select id="scene">
+            <option value="casual">カジュアル</option>
+            <option value="office">オフィス</option>
+            <option value="formal">フォーマル</option>
+            <option value="sport">スポーツ</option>
+          </select>
+        </label>
+        <button type="submit">候補を見る</button>
+      </form>
+
+      <section id="result" class="card" aria-live="polite" hidden></section>
+    </section>
+
+    <!-- クローゼット -->
+    <section id="panel-closet" role="tabpanel" aria-labelledby="tab-closet" hidden>
+      <form id="item-form" class="card">
+        <h2>服を登録</h2>
+        <label>名前
+          <input type="text" id="item-name" placeholder="例: ネイビーのニット" maxlength="40" required />
+        </label>
+        <label>種類
+          <select id="item-category"></select>
+        </label>
+        <fieldset>
+          <legend>着る季節（複数可）</legend>
+          <div id="item-seasons" class="chips"></div>
+        </fieldset>
+        <fieldset>
+          <legend>シーン（複数可）</legend>
+          <div id="item-scenes" class="chips"></div>
+        </fieldset>
+        <p id="item-error" class="status error" aria-live="polite"></p>
+        <button type="submit">追加する</button>
+      </form>
+
+      <div class="card">
+        <h2>手持ちの服</h2>
+        <div id="closet-list"></div>
+        <details class="backup">
+          <summary>バックアップ</summary>
+          <p class="hint">服のデータはこの端末のブラウザに保存されます。別の端末へ移すときは書き出し／読み込みを使ってください。</p>
+          <div class="row">
+            <button type="button" id="export" class="secondary">書き出す</button>
+            <label class="button secondary">読み込む<input type="file" id="import" accept="application/json,.json" hidden /></label>
+          </div>
+          <p id="backup-status" class="status" aria-live="polite"></p>
+        </details>
+      </div>
+    </section>
   </main>
+
+  <footer>天気データ: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></footer>
+
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

@@ -45,27 +45,76 @@ export const OUTFITS = {
 
 export const WEATHER_ITEMS = {
   sunny:  ["サングラス", "帽子"],
-  cloudy: ["折りたたみ傘（念のため）"],
+  cloudy: [],
   rainy:  ["傘", "レインブーツ／防水シューズ", "撥水アウター"],
   snowy:  ["滑りにくいブーツ", "手袋", "マフラー"],
+};
+
+// 気温帯 → クローゼット登録時の季節区分
+export const BAND_TO_SEASON = {
+  freezing: "heavy",
+  cold: "winter",
+  cool: "mid",
+  mild: "mid",
+  warm: "summer",
+  hot: "summer",
 };
 
 export function getBand(temp) {
   return TEMP_BANDS.find((b) => temp <= b.max);
 }
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// 前回と違うものを優先してランダムに選ぶ
+function pick(arr, prev) {
+  const pool = arr.length > 1 ? arr.filter((x) => x !== prev) : arr;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
-export function suggest({ temp, weather, scene }) {
+/**
+ * @param {object} p
+ * @param {number} p.temp 気温（℃）
+ * @param {string} p.weather sunny | cloudy | rainy | snowy
+ * @param {string} p.scene casual | office | formal | sport
+ * @param {Array}  [p.closet] 手持ちの服
+ * @param {{max:number,min:number}} [p.range] 今日の最高・最低気温
+ * @param {number} [p.rainChance] 降水確率（%）
+ * @param {object} [p.prev] 前回の提案（「別の候補」で同じものを避ける）
+ */
+export function suggest({ temp, weather, scene, closet = [], range, rainChance, prev }) {
   const band = getBand(temp);
-  const set = OUTFITS[scene][band.key];
+  const season = BAND_TO_SEASON[band.key];
+  const generic = OUTFITS[scene][band.key];
+
+  const slot = (category) => {
+    const owned = closet.filter(
+      (i) => i.category === category && i.seasons.includes(season) && i.scenes.includes(scene)
+    );
+    if (owned.length) {
+      const item = pick(owned, owned.find((i) => i.name === prev?.[category]?.name));
+      return { name: item.name, owned: true };
+    }
+    return { name: pick(generic[category], prev?.[category]?.name), owned: false };
+  };
+
   const items = [...WEATHER_ITEMS[weather]];
+  const tips = [];
   if (band.key === "hot" && weather === "sunny") items.push("日焼け止め");
+  if (weather !== "rainy" && weather !== "snowy" && rainChance >= 50) {
+    items.push("折りたたみ傘");
+    tips.push(`降水確率 ${rainChance}%。雨に備えましょう`);
+  } else if (weather === "cloudy") {
+    items.push("折りたたみ傘（念のため）");
+  }
+  if (range && range.max - range.min >= 8) {
+    tips.push(`寒暖差 ${range.max - range.min}℃。脱ぎ着しやすい重ね着がおすすめ`);
+  }
+
   return {
     band: band.label,
-    outer: pick(set.outer),
-    tops: pick(set.tops),
-    bottoms: pick(set.bottoms),
+    outer: slot("outer"),
+    tops: slot("tops"),
+    bottoms: slot("bottoms"),
     items,
+    tips,
   };
 }
