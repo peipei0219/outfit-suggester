@@ -8,6 +8,8 @@ import {
   putPhoto, deletePhoto, getAllPhotos, resizeImage, requestPersist, blobToDataURL, dataURLToBlob,
 } from "./photos.js";
 import { SHOPS, toKeywords } from "./shops.js";
+import { getTagger, analyzePhoto } from "./tagger.js";
+import { suggestName } from "./tagger-core.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -41,6 +43,7 @@ const store = {
 };
 const LAST_PLACE_KEY = "outfit-suggester.place.v1";
 const SCENE_KEY = "outfit-suggester.scene.v1";
+const AI_READY_KEY = "outfit-suggester.ai-ready.v1";
 
 let closet = loadCloset();
 let lastWeather = null; // { place, temp, weather, max, min, rainChance, feelsLike }
@@ -410,6 +413,7 @@ $("item-form").addEventListener("submit", async (e) => {
   const photo = pendingPhoto;
   // 写真の保存を待たずにフォームを空にして、続けて入力できるようにする
   $("item-form").reset();
+  lastAiName = null;
   document.querySelector(`input[name="category"][value="${category}"]`).checked = true; // 種類は続けて登録しやすいよう残す
   clearPendingPhoto();
   $("item-name").focus();
@@ -442,7 +446,92 @@ function clearPendingPhoto() {
   preview.hidden = true;
   preview.removeAttribute("src");
   $("item-photo-label").hidden = false;
+  showAiBox();
 }
+
+// ---------- AI で自動入力 ----------
+let aiPick = { garment: null, color: null };
+let lastAiName = null; // AI が入れた名前（ユーザーが書き換えていなければ上書きしてよい）
+
+const aiStatus = (msg) => { $("ai-status").textContent = msg; };
+const mb = (bytes) => (bytes / 1024 / 1024).toFixed(0);
+
+async function showAiBox() {
+  const box = $("ai-box");
+  $("ai-result").replaceChildren();
+  aiPick = { garment: null, color: null };
+  const available = pendingPhoto && (await getTagger());
+  box.hidden = !available;
+  if (available) {
+    aiStatus(
+      store.get(AI_READY_KEY)
+        ? "写真は端末の外に送信されません。"
+        : "初回のみAIモデルをダウンロードします（Wi-Fi推奨）。写真は端末の外に送信されません。"
+    );
+  }
+}
+
+function applyAi() {
+  const { garment, color } = aiPick;
+  if (!garment) return;
+  document.querySelector(`input[name="category"][value="${garment.category}"]`).checked = true;
+  for (const box of $("item-seasons").querySelectorAll("input")) box.checked = garment.seasons.includes(box.value);
+  const name = $("item-name");
+  if (!name.value.trim() || name.value === lastAiName) {
+    name.value = lastAiName = suggestName(garment, color);
+  }
+  for (const b of $("ai-result").querySelectorAll("button")) {
+    b.setAttribute("aria-pressed", b.dataset.key === garment.key || b.dataset.key === color?.key);
+  }
+}
+
+function renderAi(result) {
+  const group = (title, options, kind) =>
+    el("div", { className: "ai-group" },
+      el("span", { className: "ai-label", textContent: title }),
+      el("div", { className: "ai-options" },
+        ...options.map((o) => {
+          const b = el("button", { type: "button", className: "ai-option", ariaPressed: "false" },
+            el("span", { textContent: o.ja }), el("small", { textContent: `${Math.round(o.p * 100)}%` }));
+          b.dataset.key = o.key;
+          b.addEventListener("click", () => {
+            aiPick[kind] = o;
+            if (kind === "color" && !aiPick.garment) aiPick.garment = result.garments[0];
+            applyAi();
+          });
+          return b;
+        })
+      )
+    );
+  $("ai-result").replaceChildren(group("種類", result.garments, "garment"), group("色", result.colors, "color"));
+}
+
+$("ai-run").addEventListener("click", async () => {
+  const btn = $("ai-run");
+  const photo = pendingPhoto;
+  if (!photo) return;
+  btn.disabled = true;
+  aiStatus("AIモデルを準備しています…");
+  try {
+    const result = await analyzePhoto(photo, ({ loaded, total }) =>
+      aiStatus(`AIモデルを読み込み中… ${mb(loaded)} / ${mb(total)} MB`)
+    );
+    if (photo !== pendingPhoto) return; // 判定中に写真が変わった
+    store.set(AI_READY_KEY, true);
+    renderAi(result);
+    if (result.confident) {
+      aiPick = { garment: result.garments[0], color: result.colors[0] };
+      applyAi();
+      aiStatus("AIが入力しました。違っていたら候補をタップするか、直接直してください。");
+    } else {
+      aiStatus("はっきり判定できませんでした。近い候補をタップしてください。");
+    }
+  } catch (err) {
+    aiStatus(`判定できませんでした（${err.message}）。通信環境を確認してもう一度お試しください。`);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 $("item-photo").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -456,6 +545,7 @@ $("item-photo").addEventListener("change", async (e) => {
     preview.hidden = false;
     $("item-photo-label").hidden = true;
     $("item-error").textContent = "";
+    showAiBox();
   } catch (err) {
     $("item-error").textContent = err.message;
   }

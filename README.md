@@ -13,6 +13,7 @@
 - ☔ 天気・降水確率に応じた小物の提案（傘、レインブーツなど）
 - 💡 寒暖差が大きい日は重ね着をアドバイス
 - 👕 **クローゼット機能**: 手持ちの服を「種類・季節・シーン」付きで登録すると、その中から優先して提案（「手持ち」と表示）。合う服がない部分は一般的な「おすすめ」で補完
+- ✨ **写真から服の種類・色・季節を自動入力**（CLIP を端末内で実行。写真は外部に送信しません）※分類器ファイル `model/tagger.json` を生成すると有効になります（[ml/](ml/README.md)）
 - 📷 **服の写真を登録**（スマホのカメラ・写真から選択。自動で縮小して保存し、提案にも写真を表示）
 - 🛍️ **手持ちにない服をユニクロ／ZOZOTOWN で検索**（「おすすめ」の服から各サイトの検索結果へ移動）
 - 💾 クローゼットのバックアップ（写真ごと JSON で書き出し／読み込み）
@@ -32,6 +33,19 @@ npx serve .
 python3 -m http.server 8000
 ```
 
+## テスト
+
+```bash
+npm test                              # Web アプリ（node --test、依存パッケージなし）
+cd ml && uv sync --group dev && uv run pytest   # ML（モデルのダウンロード不要）
+```
+
+GitHub Actions で push / Pull Request ごとに両方を実行します（`.github/workflows/ci.yml`）。
+
+## 機械学習
+
+`ml/` に Python パッケージ `outfit-ml` があります。CLIP のゼロショット分類で服の写真を判定する仕組み、評価、ブラウザ用ファイルの書き出しを担当します。詳しくは [ml/README.md](ml/README.md)。
+
 ## GitHub Pages での公開
 
 `main` ブランチのルートをそのまま公開しています（Settings → Pages → Source: *Deploy from a branch* / `main` / `/ (root)`）。
@@ -43,12 +57,17 @@ python3 -m http.server 8000
 ├── index.html            # 画面
 ├── manifest.webmanifest  # ホーム画面に追加するための設定
 ├── icon.svg / icon-*.png # アプリアイコン
+├── model/tagger.json     # 分類器（ml/ で生成）
+├── tests/                # Web アプリのテスト
+├── ml/                   # 機械学習（Python）
 └── src/
     ├── app.js            # UI ロジック
     ├── rules.js          # 服装の候補データと提案ルール
     ├── weather.js        # Open-Meteo からの天気取得
     ├── closet.js         # 手持ちの服の保存・読み込み
     ├── photos.js         # 服の写真の縮小・保存（IndexedDB）
+    ├── tagger.js         # 端末内 CLIP の読み込みと写真の判定
+    ├── tagger-core.js    # 埋め込み → 確率の計算（Python と同じ計算）
     ├── shops.js          # ユニクロ／ZOZOTOWN の検索リンク
     └── style.css         # スタイル
 ```

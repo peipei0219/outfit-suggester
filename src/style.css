@@ -387,3 +387,26 @@ legend { padding: 0; margin-bottom: 8px; font-size: 13px; color: var(--ink-soft)
 .add-fields { min-width: 0; }
 .field input { width: 100%; min-width: 0; }
 .add-fields .seg span { font-size: 13px; padding: 4px 2px; }
+
+/* AI で自動入力 */
+.ai-box { display: grid; gap: 8px; padding: 12px; border-radius: 16px; background: var(--wash); }
+.ai-run {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; border: none; border-radius: 999px; font-weight: 700;
+  background: linear-gradient(120deg, #2c4a86, #5b7fc4); color: #fff;
+}
+.ai-run:disabled { opacity: .6; cursor: progress; }
+.ai-status { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+.ai-status:empty { display: none; }
+.ai-result:empty { display: none; }
+.ai-result { display: grid; gap: 8px; }
+.ai-group { display: flex; align-items: baseline; gap: 10px; }
+.ai-label { width: 2.5em; flex-shrink: 0; font-size: 12.5px; color: var(--ink-faint); }
+.ai-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-option {
+  display: inline-flex; align-items: baseline; gap: 4px; min-height: 34px; padding: 4px 12px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 13.5px;
+}
+.ai-option small { color: var(--ink-faint); font-size: 11px; }
+.ai-option[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.ai-option[aria-pressed="true"] small { color: inherit; opacity: .75; }

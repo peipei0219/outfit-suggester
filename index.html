@@ -96,6 +96,14 @@
             <div class="segmented" role="radiogroup" aria-label="種類" id="item-category"></div>
           </div>
         </div>
+        <div id="ai-box" class="ai-box" hidden>
+          <button type="button" id="ai-run" class="ai-run">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+            写真から自動入力
+          </button>
+          <p id="ai-status" class="ai-status" aria-live="polite"></p>
+          <div id="ai-result" class="ai-result"></div>
+        </div>
         <fieldset>
           <legend>着る季節</legend>
           <div id="item-seasons" class="chips"></div>
