@@ -32,3 +32,15 @@ def test_tagger_json_structure(tmp_path, encode_text):
 
     head = export.head_from_json(loaded["heads"]["garment"])
     np.testing.assert_allclose(head.weights, heads["garment"].weights, atol=1e-3)
+
+
+def test_bias_roundtrip_and_calibration(encode_text):
+    heads = export.build_heads(lambda t: encode_text(t))
+    dim = heads["garment"].weights.shape[1]
+    cal = {"alpha": 0.5, "mean_image_embed": [1.0] + [0.0] * (dim - 1)}
+    calibrated = export.apply_calibration(heads, cal)
+    data = export.head_to_json(calibrated["garment"])
+    assert len(data["bias"]) == len(heads["garment"].labels)
+    back = export.head_from_json(data)
+    np.testing.assert_allclose(back.bias, calibrated["garment"].bias, atol=1e-3)
+    assert export.apply_calibration(heads, None) is heads

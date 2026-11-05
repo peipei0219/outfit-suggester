@@ -65,6 +65,13 @@ test("tagger.json の confidence で基準を変えられる", () => {
   assert.equal(interpret(t, Float32Array.from([5, 0, 1])).confident, false);
 });
 
+test("キャリブレーションの bias で予測が変わる", () => {
+  const e = Float32Array.from([1, 0.95, 0]); // わずかに wool_coat 寄り
+  assert.equal(predict(fakeTagger.heads.garment, e)[0].key, "wool_coat");
+  const biased = { ...fakeTagger.heads.garment, bias: [-10, 0, 0] };
+  assert.equal(predict(biased, e)[0].key, "tshirt");
+});
+
 test("l2normalize", () => {
   const v = l2normalize([3, 4]);
   assert.ok(Math.abs(v[0] - 0.6) < 1e-6 && Math.abs(v[1] - 0.8) < 1e-6);

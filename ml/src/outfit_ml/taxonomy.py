@@ -41,9 +41,15 @@ GARMENTS: tuple[Garment, ...] = (
     Garment("polo", "ポロシャツ", ("polo shirt",), "tops", ("summer",)),
     Garment("shirt", "シャツ", ("button-up shirt", "dress shirt"), "tops", ("mid", "summer")),
     Garment("blouse", "ブラウス", ("blouse",), "tops", ("mid", "summer")),
-    Garment("knit", "ニット", ("knit sweater", "wool sweater"), "tops", ("winter", "heavy")),
+    Garment("knit", "ニット", ("knit sweater", "pullover sweater", "cable knit jumper"), "tops", ("winter", "heavy")),
     Garment("turtleneck", "タートルネック", ("turtleneck sweater",), "tops", ("winter", "heavy")),
-    Garment("sweatshirt", "スウェット", ("sweatshirt", "hoodie"), "tops", ("mid", "winter")),
+    Garment(
+        "sweatshirt",
+        "スウェット",
+        ("sweatshirt", "crewneck sweatshirt", "hooded sweatshirt"),
+        "tops",
+        ("mid", "winter"),
+    ),
     Garment("tank_top", "タンクトップ", ("tank top", "sleeveless top"), "tops", ("summer",)),
     # アプリに「ワンピース」区分がないため、いまはトップスとして扱う
     Garment("dress", "ワンピース", ("dress", "one-piece dress"), "tops", ("mid", "summer")),
@@ -53,9 +59,11 @@ GARMENTS: tuple[Garment, ...] = (
     Garment("slacks", "スラックス", ("slacks", "dress trousers"), "bottoms", ("mid", "winter")),
     Garment("wide_pants", "ワイドパンツ", ("wide leg pants",), "bottoms", ("mid", "summer")),
     Garment("shorts", "ショートパンツ", ("shorts",), "bottoms", ("summer",)),
-    Garment("skirt", "スカート", ("skirt",), "bottoms", ("mid", "summer")),
+    Garment("skirt", "スカート", ("skirt", "mini skirt"), "bottoms", ("mid", "summer")),
     Garment("long_skirt", "ロングスカート", ("long skirt", "maxi skirt"), "bottoms", ("mid", "summer")),
-    Garment("track_pants", "ジャージパンツ", ("track pants", "jogger pants"), "bottoms", ("mid",)),
+    Garment(
+        "track_pants", "ジャージパンツ", ("track pants", "jogger sweatpants", "athletic pants"), "bottoms", ("mid",)
+    ),
     Garment("leggings", "レギンス", ("leggings",), "bottoms", ("winter",)),
 )
 
@@ -69,12 +77,12 @@ class Color:
 
 COLORS: tuple[Color, ...] = (
     Color("black", "黒", ("black",)),
-    Color("white", "白", ("white", "off-white")),
-    Color("grey", "グレー", ("grey", "charcoal grey")),
-    Color("navy", "ネイビー", ("navy blue", "dark navy")),
+    Color("white", "白", ("white",)),
+    Color("grey", "グレー", ("grey", "light grey")),
+    Color("navy", "ネイビー", ("navy blue",)),
     Color("blue", "ブルー", ("blue",)),
     Color("light_blue", "水色", ("light blue", "sky blue")),
-    Color("beige", "ベージュ", ("beige", "cream")),
+    Color("beige", "ベージュ", ("beige",)),
     Color("brown", "ブラウン", ("brown",)),
     Color("khaki", "カーキ", ("khaki", "olive green")),
     Color("green", "グリーン", ("green",)),

@@ -125,7 +125,7 @@ def coverage_table(
     proba = head.predict_proba(image_embeds)
     hit = np.array([head.labels[i] in ok for i, (_, ok) in zip(proba.argmax(axis=1), gold, strict=True)])
     rows = []
-    for min_p in (0.3, 0.5, 0.7):
+    for min_p in (0.3, 0.5, 0.7, 0.85):
         for min_margin in min_margins:
             mask = is_confident(proba, min_p, min_margin)
             rows.append(
@@ -153,12 +153,24 @@ def recommend_confidence(coverage: list[dict], target_accuracy: float) -> dict:
     return {"min_p": best["min_p"], "min_margin": best["min_margin"]}
 
 
-def load_samples(per_class: int, seed: int = 0, dataset_id: str = "ashraq/fashion-product-images-small"):
-    """各 articleType から最大 per_class 枚ずつ取り出す（クラスの偏りをならすため）。"""
+SPLITS = ("dev", "test")
+
+
+def in_split(product_id: int, split: str) -> bool:
+    """商品 ID の偶奇で dev（プロンプト調整用）と test（最終報告用）に分ける。重なりはない。"""
+    if split not in SPLITS:
+        raise ValueError(f"split must be one of {SPLITS}")
+    return (product_id % 2 == 0) == (split == "dev")
+
+
+def load_samples(
+    per_class: int, seed: int = 0, split: str = "test", dataset_id: str = "ashraq/fashion-product-images-small"
+):
+    """指定した split から、各 articleType を最大 per_class 枚ずつ取り出す（クラスの偏りをならすため）。"""
     from datasets import load_dataset
 
     ds = load_dataset(dataset_id, split="train")
-    ds = ds.filter(lambda t: t in ARTICLE_TYPE_MAP, input_columns="articleType")
+    ds = ds.filter(lambda t, i: t in ARTICLE_TYPE_MAP and in_split(i, split), input_columns=["articleType", "id"])
     rng = np.random.default_rng(seed)
     by_type: dict[str, list[int]] = defaultdict(list)
     for i, t in enumerate(ds["articleType"]):
@@ -175,7 +187,9 @@ def report_markdown(
     lines = [
         "# CLIP ゼロショット分類の評価",
         "",
-        f"- データセット: `{meta['dataset']}`（各クラス最大 {meta['per_class']} 枚、seed={meta['seed']}）",
+        f"- データセット: `{meta['dataset']}` の **{meta['split']}** 側（商品 ID の偶奇で dev/test に分割。"
+        f"プロンプトは dev で調整し、この表は {meta['split']}）",
+        f"- 各クラス最大 {meta['per_class']} 枚、seed={meta['seed']}。画像は 60×80px の商品サムネイル",
         f"- モデル: `{meta['model']}`",
         "",
         "## 結果",
@@ -189,10 +203,11 @@ def report_markdown(
             cat = f"{d['category']:.1%}" if "category" in d else "-"
             lines.append(f"| {task} | {variant} | {d['n']} | {d['top1']:.1%} | {d['top3']:.1%} | {cat} |")
     for task, by_variant in results.items():
-        m = by_variant["ensemble"]
+        variant = list(by_variant)[-1]
+        m = by_variant[variant]
         lines += [
             "",
-            f"## {task}: クラス別 Top-1（アンサンブル）",
+            f"## {task}: クラス別 Top-1（{variant}）",
             "",
             "| データセットのラベル | 件数 | Top-1 |",
             "|---|---:|---:|",
@@ -206,7 +221,7 @@ def report_markdown(
     if coverage:
         lines += [
             "",
-            "## 自動入力の基準（服の種類・アンサンブル）",
+            "## 自動入力の基準（服の種類、test 側の数値。基準は dev 側で選択）",
             "",
             "| 1位の確率 ≥ | 2位との差 ≥ | 自動入力される割合 | そのときの正解率 |",
             "|---:|---:|---:|---:|",
@@ -218,5 +233,9 @@ def report_markdown(
             lines.append(f"| {r['min_p']} | {r['min_margin']} | {r['coverage']:.1%} | {r['accuracy']:.1%}{mark} |")
         if chosen:
             target = meta.get("target_accuracy", 0)
-            lines += ["", f"正解率 {target:.0%} 以上を保ちつつ、自動入力される割合が最も大きい基準を採用。"]
+            lines += [
+                "",
+                f"dev 側で、正解率 {target:.0%} 以上を保ちつつ自動入力される割合が最も大きい基準を採用"
+                "（届かない場合は正解率が最も高い基準）。",
+            ]
     return "\n".join(lines) + "\n"

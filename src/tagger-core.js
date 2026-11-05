@@ -22,7 +22,11 @@ export function loadTagger(json) {
   if (json.format !== 1) throw new Error(`未対応の分類器ファイルです (format ${json.format})`);
   const heads = {};
   for (const [name, h] of Object.entries(json.heads)) {
-    heads[name] = { labels: h.labels, dim: h.dim, scale: h.scale, weights: decodeF16(h.weights_f16, h.labels.length * h.dim) };
+    heads[name] = {
+      labels: h.labels, dim: h.dim, scale: h.scale,
+      weights: decodeF16(h.weights_f16, h.labels.length * h.dim),
+      bias: h.bias ?? null, // キャリブレーション（Python の Head.bias と同じ）
+    };
   }
   return {
     garments: json.garments, colors: json.colors, heads, imageModel: json.image_model,
@@ -45,7 +49,7 @@ export function predict(head, embedding) {
     let dot = 0;
     const off = c * head.dim;
     for (let i = 0; i < head.dim; i++) dot += head.weights[off + i] * e[i];
-    return head.scale * dot;
+    return head.scale * dot + (head.bias ? head.bias[c] : 0);
   });
   const max = Math.max(...logits);
   const exps = logits.map((l) => Math.exp(l - max));

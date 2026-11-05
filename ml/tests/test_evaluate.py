@@ -46,3 +46,10 @@ def test_recommend_confidence_maximizes_coverage_above_target():
     ]
     assert evaluate.recommend_confidence(rows, 0.85) == {"min_p": 0.5, "min_margin": 0.1}
     assert evaluate.recommend_confidence(rows, 0.99) == {"min_p": 0.7, "min_margin": 0.4}
+
+
+def test_splits_are_disjoint_and_cover_everything():
+    ids = range(100)
+    dev = {i for i in ids if evaluate.in_split(i, "dev")}
+    test = {i for i in ids if evaluate.in_split(i, "test")}
+    assert dev.isdisjoint(test) and dev | test == set(ids)

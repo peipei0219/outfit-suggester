@@ -46,12 +46,15 @@ def build_heads(
 
 
 def head_to_json(head: Head) -> dict:
-    return {
+    d = {
         "labels": head.labels,
         "dim": int(head.weights.shape[1]),
         "scale": head.scale,
         "weights_f16": encode_f16(head.weights),
     }
+    if head.bias is not None:
+        d["bias"] = [round(float(b), 4) for b in head.bias]
+    return d
 
 
 def head_from_json(d: dict) -> Head:
@@ -59,7 +62,16 @@ def head_from_json(d: dict) -> Head:
         labels=list(d["labels"]),
         weights=decode_f16(d["weights_f16"], (len(d["labels"]), d["dim"])),
         scale=float(d["scale"]),
+        bias=np.asarray(d["bias"], dtype=np.float32) if "bias" in d else None,
     )
+
+
+def apply_calibration(heads: dict[str, Head], calibration: dict | None) -> dict[str, Head]:
+    """evaluate が dev で求めた平均画像埋め込みと alpha でキャリブレーションする。"""
+    if not calibration:
+        return heads
+    mean = np.asarray(calibration["mean_image_embed"], dtype=np.float32)
+    return {name: h.calibrated(mean, calibration["alpha"]) for name, h in heads.items()}
 
 
 def to_json(heads: dict[str, Head], model_id: str, browser_model_id: str, confidence: dict | None = None) -> dict:

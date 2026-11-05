@@ -13,6 +13,7 @@ GARMENT_TEMPLATES: tuple[str, ...] = (
     "a photo of a {} laid flat.",
     "a photo of a person wearing a {}.",
     "a close-up photo of a {}.",
+    "a product photo of a {} on a white background.",
 )
 
 COLOR_TEMPLATES: tuple[str, ...] = (

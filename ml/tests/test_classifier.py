@@ -38,3 +38,15 @@ def test_is_confident_needs_margin():
 
     proba = np.array([[0.9, 0.05, 0.05], [0.51, 0.49, 0.0], [0.4, 0.3, 0.3]])
     assert is_confident(proba, 0.5, 0.25).tolist() == [True, False, False]
+
+
+def test_calibration_removes_bias_toward_attractor_class():
+    # クラス 0 の方向に寄った「平均的な画像」→ クラス 0 が出やすい
+    w = l2_normalize(np.eye(3, dtype=np.float32))
+    head = Head(labels=["grey", "black", "navy"], weights=w, scale=10)
+    mean = l2_normalize(np.array([0.8, 0.3, 0.3], dtype=np.float32))
+    ambiguous = np.array([[0.75, 0.66, 0.0]], dtype=np.float32)  # わずかに grey 寄りだが黒っぽい
+    assert head.predict_proba(ambiguous).argmax() == 0
+    cal = head.calibrated(mean, alpha=1.0)
+    assert cal.predict_proba(ambiguous).argmax() == 1
+    assert head.calibrated(mean, alpha=0.0).bias.tolist() == [0.0, 0.0, 0.0]

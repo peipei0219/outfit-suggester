@@ -28,9 +28,20 @@ class Head:
     labels: list[str]
     weights: np.ndarray  # (num_classes, dim)、各行は L2 正規化済み
     scale: float = CLIP_LOGIT_SCALE
+    bias: np.ndarray | None = None  # (num_classes,) キャリブレーション用
 
     def logits(self, image_embeds: np.ndarray) -> np.ndarray:
-        return self.scale * l2_normalize(image_embeds) @ self.weights.T
+        z = self.scale * l2_normalize(image_embeds) @ self.weights.T
+        return z if self.bias is None else z + self.bias
+
+    def calibrated(self, mean_image_embed: np.ndarray, alpha: float) -> Head:
+        """平均的な画像に対して各クラスが出しやすい分を差し引く（contextual calibration）。
+
+        CLIP のゼロショットでは特定のクラス（例: grey）に予測が偏ることがあり、
+        その偏りを「平均的な画像の logit」で見積もって alpha 倍だけ打ち消す。
+        """
+        base = Head(self.labels, self.weights, self.scale)
+        return Head(self.labels, self.weights, self.scale, -alpha * base.logits(mean_image_embed.reshape(1, -1))[0])
 
     def predict_proba(self, image_embeds: np.ndarray) -> np.ndarray:
         return softmax(self.logits(image_embeds))
