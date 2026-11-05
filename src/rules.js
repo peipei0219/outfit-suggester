@@ -91,7 +91,7 @@ export function suggest({ temp, weather, scene, closet = [], range, rainChance, 
     );
     if (owned.length) {
       const item = pick(owned, owned.find((i) => i.name === prev?.[category]?.name));
-      return { name: item.name, owned: true };
+      return { name: item.name, owned: true, id: item.id };
     }
     return { name: pick(generic[category], prev?.[category]?.name), owned: false };
   };

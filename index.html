@@ -81,6 +81,13 @@
           <legend>シーン（複数可）</legend>
           <div id="item-scenes" class="chips"></div>
         </fieldset>
+        <div>
+          <label class="photo-pick" for="item-photo">
+            <img id="item-photo-preview" alt="" hidden />
+            <span id="item-photo-label">📷 写真を追加（任意）</span>
+          </label>
+          <input type="file" id="item-photo" accept="image/*" hidden />
+        </div>
         <p id="item-error" class="status error" aria-live="polite"></p>
         <button type="submit">追加する</button>
       </form>
@@ -88,6 +95,7 @@
       <div class="card">
         <h2>手持ちの服</h2>
         <div id="closet-list"></div>
+        <input type="file" id="replace-photo" accept="image/*" hidden />
         <details class="backup">
           <summary>バックアップ</summary>
           <p class="hint">服のデータはこの端末のブラウザに保存されます。別の端末へ移すときは書き出し／読み込みを使ってください。</p>

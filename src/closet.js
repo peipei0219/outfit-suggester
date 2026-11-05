@@ -38,10 +38,12 @@ function save(items) {
 
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+// 追加した服も返す（写真の保存に id が必要なため）
 export function addItem(items, item) {
-  const next = [...items, { ...item, name: item.name.trim(), id: newId() }];
+  const added = { ...item, name: item.name.trim(), id: newId() };
+  const next = [...items, added];
   save(next);
-  return next;
+  return { items: next, added };
 }
 
 export function removeItem(items, id) {
@@ -50,18 +52,30 @@ export function removeItem(items, id) {
   return next;
 }
 
-export function exportCloset(items) {
-  return JSON.stringify({ version: 1, items }, null, 2);
+// photos: Map<id, dataURL>
+export function exportCloset(items, photos = new Map()) {
+  return JSON.stringify(
+    { version: 1, items: items.map((i) => (photos.has(i.id) ? { ...i, photo: photos.get(i.id) } : i)) },
+    null,
+    2
+  );
 }
 
 // 読み込んだ服を今のクローゼットに追加する（同じ id は上書き）
+// 写真は photos: [[id, dataURL]] として返すので、呼び出し側で保存する
 export function importCloset(items, json) {
   const data = JSON.parse(json);
   const incoming = (Array.isArray(data) ? data : data.items ?? []).filter(isValidItem);
   if (!incoming.length) throw new Error("読み込める服が見つかりませんでした");
   const byId = new Map(items.map((i) => [i.id, i]));
-  for (const i of incoming) byId.set(i.id ?? newId(), { ...i, id: i.id ?? newId() });
+  const photos = [];
+  for (const raw of incoming) {
+    const { photo, ...item } = raw;
+    item.id ??= newId();
+    byId.set(item.id, item);
+    if (typeof photo === "string" && photo.startsWith("data:image/")) photos.push([item.id, photo]);
+  }
   const next = [...byId.values()];
   save(next);
-  return { items: next, count: incoming.length };
+  return { items: next, count: incoming.length, photos };
 }

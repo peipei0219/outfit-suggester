@@ -76,3 +76,28 @@ button.icon { width: 44px; flex-shrink: 0; background: none; color: var(--muted)
 
 .backup { margin-top: 16px; }
 .backup summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+
+/* 写真 */
+.photo-pick {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  min-height: 56px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px;
+  cursor: pointer; color: var(--muted); font-size: 14px;
+}
+.photo-pick img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; }
+.thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.items li { justify-content: flex-start; }
+.items .info { flex: 1; min-width: 0; }
+button.photo-btn {
+  width: 52px; height: 52px; min-height: 0; padding: 0; flex-shrink: 0;
+  background: var(--chip); color: var(--muted); border-radius: 10px; overflow: hidden; font-size: 20px;
+}
+button.photo-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ショップリンク */
+.shops { margin-top: 12px; }
+.shops summary { cursor: pointer; font-size: 14px; padding: 8px 0; }
+.shops ul { list-style: none; padding: 0; margin: 0; }
+.shops li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.shops .name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; }
+.shops .links { display: flex; gap: 6px; }
+.shops .links a { width: auto; min-height: 36px; padding: 4px 10px; font-size: 13px; text-decoration: none; }
