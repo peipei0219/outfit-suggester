@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Outfit Suggester</title>
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <main>
+    <h1>今日なに着る？</h1>
+    <form id="form">
+      <label>気温（℃）
+        <input type="number" id="temp" value="18" min="-20" max="45" required />
+      </label>
+      <label>天気
+        <select id="weather">
+          <option value="sunny">晴れ</option>
+          <option value="cloudy">くもり</option>
+          <option value="rainy">雨</option>
+          <option value="snowy">雪</option>
+        </select>
+      </label>
+      <label>シーン
+        <select id="scene">
+          <option value="casual">カジュアル</option>
+          <option value="office">オフィス</option>
+          <option value="formal">フォーマル</option>
+          <option value="sport">スポーツ</option>
+        </select>
+      </label>
+      <button type="submit">候補を見る</button>
+    </form>
+    <section id="result" aria-live="polite"></section>
+  </main>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
