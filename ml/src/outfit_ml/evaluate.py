@@ -139,6 +139,20 @@ def coverage_table(
     return rows
 
 
+def recommend_confidence(coverage: list[dict], target_accuracy: float) -> dict:
+    """正解率が target 以上の基準のうち、自動入力される割合が最も大きいものを選ぶ。
+
+    どれも届かなければ最も正解率の高い基準を選ぶ（自動入力はほとんど起きなくなる）。
+    """
+    ok = [r for r in coverage if r["accuracy"] == r["accuracy"] and r["accuracy"] >= target_accuracy]
+    best = (
+        max(ok, key=lambda r: r["coverage"])
+        if ok
+        else max((r for r in coverage if r["accuracy"] == r["accuracy"]), key=lambda r: r["accuracy"])
+    )
+    return {"min_p": best["min_p"], "min_margin": best["min_margin"]}
+
+
 def load_samples(per_class: int, seed: int = 0, dataset_id: str = "ashraq/fashion-product-images-small"):
     """各 articleType から最大 per_class 枚ずつ取り出す（クラスの偏りをならすため）。"""
     from datasets import load_dataset
@@ -155,7 +169,9 @@ def load_samples(per_class: int, seed: int = 0, dataset_id: str = "ashraq/fashio
     return ds.select(sorted(picked))
 
 
-def report_markdown(results: dict[str, dict[str, Metrics]], meta: dict, coverage: list[dict] | None = None) -> str:
+def report_markdown(
+    results: dict[str, dict[str, Metrics]], meta: dict, coverage: list[dict] | None = None, chosen: dict | None = None
+) -> str:
     lines = [
         "# CLIP ゼロショット分類の評価",
         "",
@@ -195,5 +211,12 @@ def report_markdown(results: dict[str, dict[str, Metrics]], meta: dict, coverage
             "| 1位の確率 ≥ | 2位との差 ≥ | 自動入力される割合 | そのときの正解率 |",
             "|---:|---:|---:|---:|",
         ]
-        lines += [f"| {r['min_p']} | {r['min_margin']} | {r['coverage']:.1%} | {r['accuracy']:.1%} |" for r in coverage]
+        for r in coverage:
+            mark = (
+                " ←採用" if chosen and (r["min_p"], r["min_margin"]) == (chosen["min_p"], chosen["min_margin"]) else ""
+            )
+            lines.append(f"| {r['min_p']} | {r['min_margin']} | {r['coverage']:.1%} | {r['accuracy']:.1%}{mark} |")
+        if chosen:
+            target = meta.get("target_accuracy", 0)
+            lines += ["", f"正解率 {target:.0%} 以上を保ちつつ、自動入力される割合が最も大きい基準を採用。"]
     return "\n".join(lines) + "\n"

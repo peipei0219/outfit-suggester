@@ -35,3 +35,14 @@ def test_coverage_table_is_monotonic():
     by = {(r["min_p"], r["min_margin"]): r["coverage"] for r in rows}
     assert by[(0.3, 0.0)] >= by[(0.5, 0.0)] >= by[(0.7, 0.0)]
     assert by[(0.3, 0.0)] >= by[(0.3, 0.5)]
+
+
+def test_recommend_confidence_maximizes_coverage_above_target():
+    rows = [
+        {"min_p": 0.3, "min_margin": 0.0, "coverage": 1.0, "accuracy": 0.70},
+        {"min_p": 0.5, "min_margin": 0.1, "coverage": 0.6, "accuracy": 0.88},
+        {"min_p": 0.7, "min_margin": 0.4, "coverage": 0.3, "accuracy": 0.95},
+        {"min_p": 0.9, "min_margin": 0.4, "coverage": 0.0, "accuracy": float("nan")},
+    ]
+    assert evaluate.recommend_confidence(rows, 0.85) == {"min_p": 0.5, "min_margin": 0.1}
+    assert evaluate.recommend_confidence(rows, 0.99) == {"min_p": 0.7, "min_margin": 0.4}

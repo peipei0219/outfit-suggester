@@ -7,8 +7,8 @@ requires-python = ">=3.10"
 dependencies = ["numpy>=1.26"]
 
 [project.optional-dependencies]
-# CLIP でテキスト・画像の埋め込みを計算する（Hugging Face からモデルを取得）
-clip = ["torch>=2.2", "transformers>=4.40", "pillow>=10"]
+# CLIP でテキスト・画像の埋め込みを計算する（ブラウザと同じ ONNX ファイルを Hugging Face から取得）
+clip = ["onnxruntime>=1.17", "transformers>=4.40", "huggingface-hub>=0.23", "pillow>=10"]
 # 公開データセットでの評価
 eval = ["datasets>=2.18", "pillow>=10"]
 

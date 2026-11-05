@@ -21,7 +21,7 @@ Outfit Suggester の機械学習部分です。いまは **服の写真から「
 - **写真は端末の外に出ません。** 画像側の CLIP はブラウザ内（WebAssembly）で動きます。
 - **サーバー不要。** テキスト側はあらかじめ Python で計算し、静的ファイルとして配信します。
 - **具体的な服の種類を当ててから、種類・季節に変換。** CLIP は「アウター」のような抽象的な区分より「ダウンジャケット」の方が当てやすいため。
-- ブラウザは同じ重みを ONNX に変換した `Xenova/clip-vit-base-patch32` を使います（Python は `openai/clip-vit-base-patch32`）。
+- Python もブラウザも **同じ ONNX ファイル**（`Xenova/clip-vit-base-patch32`）を使います。画像側はブラウザと同じ 8bit 量子化版で評価するので、レポートの数値がそのままアプリでの精度になります。PyTorch は不要です。
 
 ## セットアップ
 
@@ -35,8 +35,8 @@ uv sync --group dev --extra clip --extra eval   # 書き出し・評価もする
 
 ```bash
 uv run pytest                        # テスト（モデルのダウンロード不要）
-uv run outfit-ml export              # model/tagger.json を作る
-uv run outfit-ml evaluate --per-class 100   # 公開データセットで精度を測る → reports/
+uv run outfit-ml evaluate --per-class 100   # 精度を測り、自動入力の基準を決める → reports/
+uv run outfit-ml export              # model/tagger.json を作る（evaluate で決めた基準を使う）
 ```
 
 ## 評価
@@ -55,7 +55,7 @@ uv run outfit-ml evaluate --per-class 100   # 公開データセットで精度�
 | `taxonomy.py` | 服の種類・色の定義。アプリのキーと一致することをテストで確認 |
 | `prompts.py` | プロンプトテンプレート |
 | `classifier.py` | 埋め込み → 確率の計算（numpy のみ、ブラウザ側と同じ計算） |
-| `clip.py` | Hugging Face transformers の CLIP ラッパー |
+| `clip.py` | ONNX Runtime で CLIP を動かす（ブラウザと同じ ONNX ファイル） |
 | `export.py` | `model/tagger.json` の書き出し |
 | `evaluate.py` | 評価用のラベル変換と指標 |
 | `cli.py` | `outfit-ml` コマンド |
