@@ -3,113 +3,140 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#3b6ea5" />
-  <meta name="description" content="気温・天気・シーンと手持ちの服から、今日の服装の候補を提案します" />
+  <meta name="theme-color" content="#5b86c4" />
+  <meta name="description" content="今日の天気と手持ちの服から、服装の候補を提案します" />
   <title>今日なに着る？</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="今日なに着る？" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" />
   <link rel="stylesheet" href="src/style.css" />
 </head>
 <body>
-  <header>
-    <h1>今日なに着る？</h1>
-    <nav class="tabs" role="tablist">
-      <button role="tab" id="tab-suggest" aria-controls="panel-suggest" aria-selected="true">コーデ提案</button>
-      <button role="tab" id="tab-closet" aria-controls="panel-closet" aria-selected="false">クローゼット <span id="closet-count" class="badge"></span></button>
-    </nav>
-  </header>
-
-  <main>
-    <!-- コーデ提案 -->
-    <section id="panel-suggest" role="tabpanel" aria-labelledby="tab-suggest">
-      <div class="card">
-        <div class="row">
-          <button type="button" id="use-location" class="secondary">📍 現在地の天気</button>
+  <!-- ===== コーデ ===== -->
+  <div id="panel-suggest" class="view" role="tabpanel" aria-labelledby="tab-suggest">
+    <header id="sky" class="sky" data-sky="cloudy">
+      <div class="sky-inner">
+        <div class="sky-top">
+          <p id="today" class="today"></p>
+          <p id="place" class="place"></p>
         </div>
-        <form id="city-form" class="row">
-          <input type="search" id="city" placeholder="地名で検索（例: 札幌）" aria-label="地名" />
-          <button type="submit" class="secondary">検索</button>
+        <p class="temp"><span id="temp-big">18</span><span class="deg">°</span></p>
+        <h1 id="verdict" class="verdict">羽織りものが一枚ほしい日</h1>
+        <p id="weather-status" class="weather-line" aria-live="polite"></p>
+        <div class="sky-actions">
+          <button type="button" id="use-location" class="glass">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+            現在地の天気
+          </button>
+          <button type="button" id="open-search" class="glass" aria-expanded="false" aria-controls="city-form">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+            地名で探す
+          </button>
+        </div>
+        <form id="city-form" class="city-form" hidden>
+          <input type="search" id="city" placeholder="例: 札幌、福岡" aria-label="地名" enterkeyhint="search" />
+          <button type="submit" class="glass">検索</button>
         </form>
         <ul id="city-results" class="city-results"></ul>
-        <p id="weather-status" class="status" aria-live="polite"></p>
       </div>
+    </header>
 
-      <form id="form" class="card">
-        <label>気温（℃）
-          <input type="number" id="temp" value="18" min="-30" max="45" inputmode="numeric" required />
-        </label>
-        <label>天気
-          <select id="weather">
-            <option value="sunny">☀️ 晴れ</option>
-            <option value="cloudy">☁️ くもり</option>
-            <option value="rainy">☔ 雨</option>
-            <option value="snowy">❄️ 雪</option>
-          </select>
-        </label>
-        <label>シーン
-          <select id="scene">
-            <option value="casual">カジュアル</option>
-            <option value="office">オフィス</option>
-            <option value="formal">フォーマル</option>
-            <option value="sport">スポーツ</option>
-          </select>
-        </label>
-        <button type="submit">候補を見る</button>
-      </form>
+    <main class="sheet">
+      <div class="scenes" role="radiogroup" aria-label="シーン" id="scenes"></div>
 
-      <section id="result" class="card" aria-live="polite" hidden></section>
-    </section>
+      <section id="result" class="look" aria-live="polite"></section>
 
-    <!-- クローゼット -->
-    <section id="panel-closet" role="tabpanel" aria-labelledby="tab-closet" hidden>
-      <form id="item-form" class="card">
-        <h2>服を登録</h2>
-        <label>名前
-          <input type="text" id="item-name" placeholder="例: ネイビーのニット" maxlength="40" required />
-        </label>
-        <label>種類
-          <select id="item-category"></select>
-        </label>
+      <details class="manual">
+        <summary>気温と天気を手で変える</summary>
+        <form id="form" class="manual-form">
+          <div class="stepper">
+            <button type="button" class="step" data-step="-1" aria-label="1℃下げる">−</button>
+            <label>気温
+              <span class="stepper-value"><input type="number" id="temp" value="18" min="-30" max="45" inputmode="numeric" required />℃</span>
+            </label>
+            <button type="button" class="step" data-step="1" aria-label="1℃上げる">＋</button>
+          </div>
+          <div class="segmented" role="radiogroup" aria-label="天気" id="weathers"></div>
+        </form>
+      </details>
+
+      <footer class="credit">天気データ: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></footer>
+    </main>
+  </div>
+
+  <!-- ===== クローゼット ===== -->
+  <div id="panel-closet" class="view closet-view" role="tabpanel" aria-labelledby="tab-closet" hidden>
+    <header class="closet-head">
+      <h1>クローゼット</h1>
+      <p id="closet-summary" class="closet-summary"></p>
+      <button type="button" id="toggle-add" class="primary" aria-expanded="false" aria-controls="item-form">＋ 服を追加</button>
+    </header>
+
+    <main class="closet-main">
+      <form id="item-form" class="add-form" hidden>
+        <div class="add-grid">
+          <label class="photo-pick" for="item-photo">
+            <img id="item-photo-preview" alt="" hidden />
+            <span id="item-photo-label">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+              写真
+            </span>
+          </label>
+          <input type="file" id="item-photo" accept="image/*" hidden />
+          <div class="add-fields">
+            <label class="field">名前
+              <input type="text" id="item-name" placeholder="例: ネイビーのニット" maxlength="40" required />
+            </label>
+            <div class="segmented" role="radiogroup" aria-label="種類" id="item-category"></div>
+          </div>
+        </div>
         <fieldset>
-          <legend>着る季節（複数可）</legend>
+          <legend>着る季節</legend>
           <div id="item-seasons" class="chips"></div>
         </fieldset>
         <fieldset>
-          <legend>シーン（複数可）</legend>
+          <legend>シーン</legend>
           <div id="item-scenes" class="chips"></div>
         </fieldset>
-        <div>
-          <label class="photo-pick" for="item-photo">
-            <img id="item-photo-preview" alt="" hidden />
-            <span id="item-photo-label">📷 写真を追加（任意）</span>
-          </label>
-          <input type="file" id="item-photo" accept="image/*" hidden />
+        <p id="item-error" class="error" aria-live="polite"></p>
+        <div class="add-actions">
+          <button type="button" id="cancel-add" class="ghost">閉じる</button>
+          <button type="submit" class="primary">追加する</button>
         </div>
-        <p id="item-error" class="status error" aria-live="polite"></p>
-        <button type="submit">追加する</button>
       </form>
 
-      <div class="card">
-        <h2>手持ちの服</h2>
-        <div id="closet-list"></div>
-        <input type="file" id="replace-photo" accept="image/*" hidden />
-        <details class="backup">
-          <summary>バックアップ</summary>
-          <p class="hint">服のデータはこの端末のブラウザに保存されます。別の端末へ移すときは書き出し／読み込みを使ってください。</p>
-          <div class="row">
-            <button type="button" id="export" class="secondary">書き出す</button>
-            <label class="button secondary">読み込む<input type="file" id="import" accept="application/json,.json" hidden /></label>
-          </div>
-          <p id="backup-status" class="status" aria-live="polite"></p>
-        </details>
-      </div>
-    </section>
-  </main>
+      <div id="closet-list"></div>
+      <input type="file" id="replace-photo" accept="image/*" hidden />
 
-  <footer>天気データ: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></footer>
+      <details class="backup">
+        <summary>バックアップ</summary>
+        <p class="hint">服と写真はこの端末のブラウザに保存されています。機種変更のときは書き出したファイルを新しい端末で読み込んでください。</p>
+        <div class="backup-actions">
+          <button type="button" id="export" class="ghost">書き出す</button>
+          <label class="ghost button">読み込む<input type="file" id="import" accept="application/json,.json" hidden /></label>
+        </div>
+        <p id="backup-status" class="hint" aria-live="polite"></p>
+      </details>
+    </main>
+  </div>
+
+  <!-- ===== タブバー ===== -->
+  <nav class="tabbar" role="tablist" aria-label="画面の切り替え">
+    <button role="tab" id="tab-suggest" aria-controls="panel-suggest" aria-selected="true">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8.5 4L4 6.5l1.8 3.6 2.2-.9V20h8V9.2l2.2.9L20 6.5 15.5 4c-.6 1.6-1.9 2.6-3.5 2.6S9.1 5.6 8.5 4z"/></svg>
+      <span>今日のコーデ</span>
+    </button>
+    <button role="tab" id="tab-closet" aria-controls="panel-closet" aria-selected="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 8.5V7.4a2 2 0 1 0-2-2"/><path d="M12 8.5L3.5 15a1.3 1.3 0 0 0 .8 2.4h15.4a1.3 1.3 0 0 0 .8-2.4z"/></svg>
+      <span>クローゼット<span id="closet-count" class="badge"></span></span>
+    </button>
+  </nav>
 
   <script type="module" src="src/app.js"></script>
 </body>

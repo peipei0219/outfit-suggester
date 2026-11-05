@@ -1,11 +1,11 @@
 // 気温帯ごとの服装候補（シーン別）
 export const TEMP_BANDS = [
-  { max: 5,  label: "かなり寒い" , key: "freezing" },
-  { max: 12, label: "寒い",        key: "cold" },
-  { max: 18, label: "肌寒い",      key: "cool" },
-  { max: 24, label: "過ごしやすい", key: "mild" },
-  { max: 28, label: "暖かい",      key: "warm" },
-  { max: Infinity, label: "暑い",  key: "hot" },
+  { max: 5,  label: "かなり寒い",   key: "freezing", verdict: "しっかり防寒したい日" },
+  { max: 12, label: "寒い",         key: "cold",     verdict: "コートが活躍する日" },
+  { max: 18, label: "肌寒い",       key: "cool",     verdict: "羽織りものが一枚ほしい日" },
+  { max: 24, label: "過ごしやすい", key: "mild",     verdict: "軽やかに過ごせる日" },
+  { max: 28, label: "暖かい",       key: "warm",     verdict: "半袖でちょうどいい日" },
+  { max: Infinity, label: "暑い",   key: "hot",      verdict: "涼しさを優先したい日" },
 ];
 
 export const OUTFITS = {
@@ -111,6 +111,8 @@ export function suggest({ temp, weather, scene, closet = [], range, rainChance, 
 
   return {
     band: band.label,
+    bandKey: band.key,
+    verdict: band.verdict,
     outer: slot("outer"),
     tops: slot("tops"),
     bottoms: slot("bottoms"),
